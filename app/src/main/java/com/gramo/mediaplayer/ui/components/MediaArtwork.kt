@@ -49,7 +49,7 @@ fun MediaArtwork(
                 .crossfade(true)
                 .apply {
                     if (mediaType == MediaType.VIDEO && coverUri.toString().startsWith("content://")) {
-                        decoderFactory { result, options, _ -> VideoFrameDecoder(result, options) }
+                        decoderFactory(VideoFrameDecoder.Factory())
                     }
                 }
                 .build()

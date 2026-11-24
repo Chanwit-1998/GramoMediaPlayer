@@ -222,7 +222,7 @@ fun MainLibraryScreen(
                 uiState.selectedTab == MainTab.MUSIC -> uiState.musicList
                 uiState.selectedTab == MainTab.VIDEO -> uiState.videoList
                 uiState.selectedTab == MainTab.MUSIC_ALBUMS -> uiState.musicList
-                MainTab.VIDEO_ALBUMS -> uiState.videoList
+                else -> uiState.videoList
             }
 
             Row(

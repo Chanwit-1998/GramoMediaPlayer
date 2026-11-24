@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.GramoMediaPlayer" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#F6F7FB</item>
+        <item name="android:navigationBarColor">#F6F7FB</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

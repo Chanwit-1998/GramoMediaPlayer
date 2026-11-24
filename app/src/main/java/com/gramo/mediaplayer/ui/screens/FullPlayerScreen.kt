@@ -190,18 +190,12 @@ fun FullPlayerScreen(
                     )
                 }
 
-                AnimatedVisibility(
-                    visible = lyricsVisible && !activeLyricText.isNullOrBlank(),
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
-                ) {
+                if (lyricsVisible && !activeLyricText.isNullOrBlank()) {
                     Box(
                         modifier = Modifier
+                            .align(Alignment.BottomCenter)
                             .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(Color.Black.copy(alpha = 0.72f))
                             .padding(horizontal = 12.dp, vertical = 8.dp),

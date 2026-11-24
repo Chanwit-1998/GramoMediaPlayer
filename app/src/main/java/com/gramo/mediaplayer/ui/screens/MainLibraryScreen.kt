@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,32 +44,18 @@ fun MainLibraryScreen(
     onSelectTab: (MainTab) -> Unit,
     onToggleSearch: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
-    onToggleHighlightsFilter: () -> Unit,
     onSetHighlightsFilter: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onPlayMedia: (MediaItemModel, List<MediaItemModel>) -> Unit,
     onTogglePlayPause: () -> Unit,
     onOpenFullPlayer: () -> Unit,
     onOpenDetails: (MediaItemModel) -> Unit,
-    onToggleHighlight: (MediaItemModel) -> Unit,
-    onSetCustomCoverForItem: (MediaItemModel, Uri) -> Unit,
     onOpenAlbum: (AlbumGroup) -> Unit,
     onCloseAlbum: () -> Unit,
     onSetCustomCoverForAlbum: (AlbumGroup, Uri) -> Unit
 ) {
-    var pendingCoverTargetItem by remember { mutableStateOf<MediaItemModel?>(null) }
     var pendingCoverTargetAlbum by remember { mutableStateOf<AlbumGroup?>(null) }
     var showTopMenu by remember { mutableStateOf(false) }
-
-    val itemCoverPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        val target = pendingCoverTargetItem
-        if (uri != null && target != null) {
-            onSetCustomCoverForItem(target, uri)
-        }
-        pendingCoverTargetItem = null
-    }
 
     val albumCoverPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -103,7 +88,6 @@ fun MainLibraryScreen(
                 .padding(innerPadding)
                 .statusBarsPadding()
         ) {
-            // Top bar: Search & Menu icons on right (matching 685389.jpg)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -170,7 +154,6 @@ fun MainLibraryScreen(
                 }
             }
 
-            // Large App Title (matching 685389.jpg)
             Text(
                 text = "แกรโมโฟน",
                 fontSize = 32.sp,
@@ -181,8 +164,6 @@ fun MainLibraryScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // ONLY 4 TABS in pill style (matching 685389.jpg red box):
-            // 1. เพลง | 2. วิดีโอ | 3. อัลบั้มเพลง | 4. อัลบั้มวิดีโอ
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -215,7 +196,6 @@ fun MainLibraryScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Sub-header bar: Item count + My Highlights toggle chip + Play All / Shuffle
             val activeItemsForCount: List<MediaItemModel> = when {
                 uiState.showOnlyHighlights -> (uiState.musicList + uiState.videoList).filter { it.isHighlighted }
                 uiState.openedAlbum != null -> uiState.openedAlbum.items
@@ -228,111 +208,68 @@ fun MainLibraryScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (uiState.openedAlbum != null) {
-                        IconButton(
-                            onClick = onCloseAlbum,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                contentDescription = "กลับ",
-                                tint = DarkIconColor
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = uiState.openedAlbum.albumName,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = DarkIconColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    } else {
-                        val countText = when {
-                            uiState.showOnlyHighlights -> "ไฮไลท์ของฉัน (${activeItemsForCount.size})"
-                            uiState.selectedTab == MainTab.MUSIC -> "${uiState.musicList.size} เพลง"
-                            uiState.selectedTab == MainTab.VIDEO -> "${uiState.videoList.size} วิดีโอ"
-                            uiState.selectedTab == MainTab.MUSIC_ALBUMS -> "${uiState.musicAlbums.size} อัลบั้มเพลง"
-                            else -> "${uiState.videoAlbums.size} อัลบั้มวิดีโอ"
-                        }
-                        Text(
-                            text = countText,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = DarkIconColor
+                if (uiState.openedAlbum != null) {
+                    IconButton(
+                        onClick = onCloseAlbum,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "กลับ",
+                            tint = DarkIconColor
                         )
                     }
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // My Highlights Filter Chip ("ไฮไลท์ของฉัน")
-                    FilterChip(
-                        selected = uiState.showOnlyHighlights,
-                        onClick = onToggleHighlightsFilter,
-                        label = { Text("ไฮไลท์ของฉัน", fontSize = 12.sp) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = if (uiState.showOnlyHighlights) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                                contentDescription = null,
-                                tint = RoyalBlueAccent,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
                     Spacer(modifier = Modifier.width(6.dp))
-
-                    // Play All button
+                    Text(
+                        text = uiState.openedAlbum.albumName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = DarkIconColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else if (uiState.showOnlyHighlights) {
                     IconButton(
-                        onClick = {
-                            if (activeItemsForCount.isNotEmpty()) {
-                                onPlayMedia(activeItemsForCount.first(), activeItemsForCount)
-                            }
-                        },
-                        modifier = Modifier.size(34.dp)
+                        onClick = { onSetHighlightsFilter(false) },
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.PlayArrow,
-                            contentDescription = "เล่นทั้งหมด",
-                            tint = RoyalBlueAccent,
-                            modifier = Modifier.size(23.dp)
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "กลับ",
+                            tint = DarkIconColor
                         )
                     }
-
-                    // Shuffle Play button
-                    IconButton(
-                        onClick = {
-                            if (activeItemsForCount.isNotEmpty()) {
-                                val shuffled = activeItemsForCount.shuffled()
-                                onPlayMedia(shuffled.first(), shuffled)
-                            }
-                        },
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Shuffle,
-                            contentDescription = "สุ่มเล่น",
-                            tint = RoyalBlueAccent,
-                            modifier = Modifier.size(21.dp)
-                        )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "ไฮไลท์ของฉัน (${activeItemsForCount.size})",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = DarkIconColor
+                    )
+                } else {
+                    val countText = when (uiState.selectedTab) {
+                        MainTab.MUSIC -> "${uiState.musicList.size} เพลง"
+                        MainTab.VIDEO -> "${uiState.videoList.size} วิดีโอ"
+                        MainTab.MUSIC_ALBUMS -> "${uiState.musicAlbums.size} อัลบั้มเพลง"
+                        MainTab.VIDEO_ALBUMS -> "${uiState.videoAlbums.size} อัลบั้มวิดีโอ"
                     }
+                    Text(
+                        text = countText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = DarkIconColor
+                    )
                 }
             }
 
-            // Content Area
             if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = RoyalBlueAccent)
                 }
             } else if (uiState.showOnlyHighlights) {
-                // MY HIGHLIGHTS VIEW: Shows highlighted Music & Videos + quick "Add Album Cover Art" button!
                 val highlightedItems = (uiState.musicList + uiState.videoList)
                     .filter { it.isHighlighted }
                     .filter { query.isEmpty() || it.title.lowercase().contains(query) || it.artist.lowercase().contains(query) }
@@ -340,19 +277,13 @@ fun MainLibraryScreen(
                 if (highlightedItems.isEmpty()) {
                     EmptyStateMessage(
                         title = "ยังไม่มีรายการในไฮไลท์ของฉัน",
-                        subtitle = "กดปุ่มหัวใจ หรือกดเพิ่มปกอัลบั้มในหน้ารายละเอียดของเพลงหรือวิดีโอ เพื่อแสดงที่นี่"
+                        subtitle = "กดเข้า 'รายละเอียด' ของเพลงหรือวิดีโอ แล้วเลือก 'เพิ่มในไฮไลท์' หรือ 'เพิ่มปกอัลบั้ม'"
                     )
                 } else {
                     MediaItemLazyList(
                         items = highlightedItems,
-                        showAddCoverShortcut = true,
                         onPlay = { item -> onPlayMedia(item, highlightedItems) },
-                        onOpenDetails = onOpenDetails,
-                        onToggleHighlight = onToggleHighlight,
-                        onAddCustomCover = { item ->
-                            pendingCoverTargetItem = item
-                            itemCoverPicker.launch("image/*")
-                        }
+                        onOpenDetails = onOpenDetails
                     )
                 }
             } else if (uiState.openedAlbum != null) {
@@ -361,14 +292,8 @@ fun MainLibraryScreen(
                 }
                 MediaItemLazyList(
                     items = albumItems,
-                    showAddCoverShortcut = true,
                     onPlay = { item -> onPlayMedia(item, albumItems) },
-                    onOpenDetails = onOpenDetails,
-                    onToggleHighlight = onToggleHighlight,
-                    onAddCustomCover = { item ->
-                        pendingCoverTargetItem = item
-                        itemCoverPicker.launch("image/*")
-                    }
+                    onOpenDetails = onOpenDetails
                 )
             } else {
                 when (uiState.selectedTab) {
@@ -381,14 +306,8 @@ fun MainLibraryScreen(
                         } else {
                             MediaItemLazyList(
                                 items = filtered,
-                                showAddCoverShortcut = false,
                                 onPlay = { item -> onPlayMedia(item, filtered) },
-                                onOpenDetails = onOpenDetails,
-                                onToggleHighlight = onToggleHighlight,
-                                onAddCustomCover = { item ->
-                                    pendingCoverTargetItem = item
-                                    itemCoverPicker.launch("image/*")
-                                }
+                                onOpenDetails = onOpenDetails
                             )
                         }
                     }
@@ -402,14 +321,8 @@ fun MainLibraryScreen(
                         } else {
                             MediaItemLazyList(
                                 items = filtered,
-                                showAddCoverShortcut = false,
                                 onPlay = { item -> onPlayMedia(item, filtered) },
-                                onOpenDetails = onOpenDetails,
-                                onToggleHighlight = onToggleHighlight,
-                                onAddCustomCover = { item ->
-                                    pendingCoverTargetItem = item
-                                    itemCoverPicker.launch("image/*")
-                                }
+                                onOpenDetails = onOpenDetails
                             )
                         }
                     }
@@ -450,11 +363,8 @@ fun MainLibraryScreen(
 @Composable
 private fun MediaItemLazyList(
     items: List<MediaItemModel>,
-    showAddCoverShortcut: Boolean,
     onPlay: (MediaItemModel) -> Unit,
-    onOpenDetails: (MediaItemModel) -> Unit,
-    onToggleHighlight: (MediaItemModel) -> Unit,
-    onAddCustomCover: (MediaItemModel) -> Unit
+    onOpenDetails: (MediaItemModel) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -500,17 +410,6 @@ private fun MediaItemLazyList(
                     )
                 }
 
-                if (showAddCoverShortcut) {
-                    IconButton(onClick = { onAddCustomCover(item) }) {
-                        Icon(
-                            imageVector = Icons.Outlined.AddPhotoAlternate,
-                            contentDescription = "เพิ่มปกอัลบั้ม",
-                            tint = RoyalBlueAccent,
-                            modifier = Modifier.size(21.dp)
-                        )
-                    }
-                }
-
                 Box {
                     IconButton(onClick = { showItemMenu = true }) {
                         Icon(
@@ -530,30 +429,6 @@ private fun MediaItemLazyList(
                             onClick = {
                                 showItemMenu = false
                                 onOpenDetails(item)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("เพิ่ม/เปลี่ยนปกอัลบั้ม") },
-                            leadingIcon = { Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = null) },
-                            onClick = {
-                                showItemMenu = false
-                                onAddCustomCover(item)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(if (item.isHighlighted) "นำออกจากไฮไลท์ของฉัน" else "เพิ่มในไฮไลท์ของฉัน")
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = if (item.isHighlighted) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                                    contentDescription = null,
-                                    tint = RoyalBlueAccent
-                                )
-                            },
-                            onClick = {
-                                showItemMenu = false
-                                onToggleHighlight(item)
                             }
                         )
                     }

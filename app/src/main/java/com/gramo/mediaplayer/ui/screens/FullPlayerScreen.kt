@@ -1,5 +1,8 @@
 package com.gramo.mediaplayer.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material.icons.outlined.SubtitlesOff
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.TimerOff
 import androidx.compose.material.icons.rounded.*
@@ -20,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +54,9 @@ fun FullPlayerScreen(
     shuffleEnabled: Boolean,
     playbackSpeed: Float,
     sleepTimerRemainingSec: Int,
+    lyricsVisible: Boolean,
+    activeLyricText: String?,
+    hasLyrics: Boolean,
     onCollapse: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
@@ -56,6 +65,7 @@ fun FullPlayerScreen(
     onCycleRepeat: () -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleHighlight: () -> Unit,
+    onToggleLyricsVisibility: () -> Unit,
     onOpenDetails: () -> Unit,
     onSelectSpeed: (Float) -> Unit,
     onSelectSleepTimer: (Int) -> Unit,
@@ -87,7 +97,6 @@ fun FullPlayerScreen(
                 .padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top bar: Collapse arrow on left, Sleep timer & Speed on right (matching 685392.jpg)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -103,6 +112,17 @@ fun FullPlayerScreen(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (hasLyrics) {
+                        IconButton(onClick = onToggleLyricsVisibility) {
+                            Icon(
+                                imageVector = if (lyricsVisible) Icons.Outlined.Subtitles else Icons.Outlined.SubtitlesOff,
+                                contentDescription = "แสดง/ซ่อนเนื้อเพลง",
+                                tint = if (lyricsVisible) RoyalBlueAccent else DarkIconColor,
+                                modifier = Modifier.size(23.dp)
+                            )
+                        }
+                    }
+
                     if (sleepTimerRemainingSec > 0) {
                         Text(
                             text = "${sleepTimerRemainingSec / 60}:${(sleepTimerRemainingSec % 60).toString().padStart(2, '0')}",
@@ -121,8 +141,6 @@ fun FullPlayerScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
-
                     IconButton(onClick = { showSpeedDialog = true }) {
                         Icon(
                             imageVector = Icons.Rounded.Speed,
@@ -136,8 +154,6 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // CENTER SQUARE FRAME (The Red Box in user's screenshot!)
-            // Identical frame: shows Album Cover Art for MUSIC, or live Video PlayerView for VIDEO
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -173,11 +189,40 @@ fun FullPlayerScreen(
                         discIconFraction = 0.46f
                     )
                 }
+
+                AnimatedVisibility(
+                    visible = lyricsVisible && !activeLyricText.isNullOrBlank(),
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.Black.copy(alpha = 0.72f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = activeLyricText.orEmpty(),
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 19.sp
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(26.dp))
 
-            // Title & Artist (Left-aligned, royal blue title + gray subtitle matching 685392.jpg)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -204,7 +249,6 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Seekbar + Timestamps
             Column(modifier = Modifier.fillMaxWidth()) {
                 Slider(
                     value = sliderValue,
@@ -253,7 +297,6 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Main Transport Controls: Previous | Large Play/Pause Circle | Next
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -302,8 +345,6 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Bottom 5 Action Icons Row (matching 685392.jpg bottom bar)
-            // 1. Details | 2. Repeat | 3. Shuffle | 4. Favorite (My Highlights) | 5. Queue
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -369,7 +410,6 @@ fun FullPlayerScreen(
         }
     }
 
-    // Playback Speed Dialog
     if (showSpeedDialog) {
         val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
         AlertDialog(
@@ -409,7 +449,6 @@ fun FullPlayerScreen(
         )
     }
 
-    // Sleep Timer Dialog
     if (showSleepDialog) {
         val options = listOf(0 to "ปิดการตั้งเวลา", 15 to "15 นาที", 30 to "30 นาที", 45 to "45 นาที", 60 to "60 นาที")
         AlertDialog(
@@ -441,7 +480,6 @@ fun FullPlayerScreen(
         )
     }
 
-    // Queue Bottom Sheet
     if (showQueueSheet) {
         AlertDialog(
             onDismissRequest = { showQueueSheet = false },

@@ -8,8 +8,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.gramo.mediaplayer.data.LocalPrefsManager
+import com.gramo.mediaplayer.data.LyricsParser
 import com.gramo.mediaplayer.data.MediaRepository
 import com.gramo.mediaplayer.model.AlbumGroup
+import com.gramo.mediaplayer.model.LyricLine
 import com.gramo.mediaplayer.model.MainTab
 import com.gramo.mediaplayer.model.MediaDetails
 import com.gramo.mediaplayer.model.MediaItemModel
@@ -29,16 +31,11 @@ data class PlayerUiState(
     val isSearchActive: Boolean = false,
     val showOnlyHighlights: Boolean = false,
     val isLoading: Boolean = false,
-
     val musicList: List<MediaItemModel> = emptyList(),
     val videoList: List<MediaItemModel> = emptyList(),
     val musicAlbums: List<AlbumGroup> = emptyList(),
     val videoAlbums: List<AlbumGroup> = emptyList(),
-
-    // Selected album drill-down
     val openedAlbum: AlbumGroup? = null,
-
-    // Active playback state
     val queue: List<MediaItemModel> = emptyList(),
     val currentIndex: Int = -1,
     val currentItem: MediaItemModel? = null,
@@ -49,19 +46,21 @@ data class PlayerUiState(
     val shuffleEnabled: Boolean = false,
     val playbackSpeed: Float = 1.0f,
     val sleepTimerRemainingSec: Int = 0,
-
-    // Screen overlays
+    val lyricsVisible: Boolean = true,
+    val parsedLyrics: List<LyricLine> = emptyList(),
+    val activeLyricText: String? = null,
     val isFullPlayerOpen: Boolean = false,
     val detailsItem: MediaItemModel? = null,
     val detailsMetadata: MediaDetails? = null,
-    val isLoadingDetails: Boolean = false
+    val isLoadingDetails: Boolean = false,
+    val lyricsEditorItem: MediaItemModel? = null,
+    val lyricsEditorRawText: String = ""
 )
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefsManager = LocalPrefsManager(application)
     private val repository = MediaRepository(application, prefsManager)
-
     val exoPlayer: ExoPlayer = ExoPlayer.Builder(application).build()
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -85,7 +84,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         })
-
         startPositionTracker()
     }
 
@@ -93,15 +91,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         positionJob?.cancel()
         positionJob = viewModelScope.launch {
             while (isActive) {
-                if (exoPlayer.isPlaying) {
+                val pos = exoPlayer.currentPosition.coerceAtLeast(0L)
+                val state = _uiState.value
+                if (exoPlayer.isPlaying || pos != state.currentPositionMs) {
+                    val activeLine = if (state.lyricsVisible) {
+                        LyricsParser.findActiveLyric(state.parsedLyrics, pos)
+                    } else {
+                        null
+                    }
                     _uiState.update {
                         it.copy(
-                            currentPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L),
-                            durationMs = exoPlayer.duration.coerceAtLeast(it.durationMs)
+                            currentPositionMs = pos,
+                            durationMs = exoPlayer.duration.coerceAtLeast(it.durationMs),
+                            activeLyricText = activeLine
                         )
                     }
                 }
-                delay(250L)
+                delay(100L)
             }
         }
     }
@@ -178,10 +184,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.update { it.copy(searchQuery = query) }
     }
 
-    fun toggleHighlightsFilter() {
-        _uiState.update { it.copy(showOnlyHighlights = !it.showOnlyHighlights, openedAlbum = null) }
-    }
-
     fun setHighlightsFilter(enabled: Boolean) {
         _uiState.update { it.copy(showOnlyHighlights = enabled, openedAlbum = null) }
     }
@@ -203,13 +205,50 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 currentItem = item,
                 currentPositionMs = 0L,
                 durationMs = item.durationMs,
-                isFullPlayerOpen = openFullPlayer
+                isFullPlayerOpen = openFullPlayer,
+                parsedLyrics = emptyList(),
+                activeLyricText = null
             )
         }
         exoPlayer.setMediaItem(MediaItem.fromUri(item.contentUri))
         exoPlayer.prepare()
         exoPlayer.setPlaybackSpeed(_uiState.value.playbackSpeed)
         exoPlayer.playWhenReady = true
+
+        loadLyricsForActiveItem(item)
+    }
+
+    private fun loadLyricsForActiveItem(item: MediaItemModel) {
+        viewModelScope.launch {
+            val raw = prefsManager.loadLyricsText(item.type.name, item.id, item.filePath)
+            val parsed = LyricsParser.parse(raw, item.durationMs)
+            val currentPos = exoPlayer.currentPosition.coerceAtLeast(0L)
+            val active = if (_uiState.value.lyricsVisible) {
+                LyricsParser.findActiveLyric(parsed, currentPos)
+            } else {
+                null
+            }
+            if (_uiState.value.currentItem?.id == item.id && _uiState.value.currentItem?.type == item.type) {
+                _uiState.update {
+                    it.copy(
+                        parsedLyrics = parsed,
+                        activeLyricText = active
+                    )
+                }
+            }
+        }
+    }
+
+    fun toggleLyricsVisibility() {
+        _uiState.update { state ->
+            val nextVisible = !state.lyricsVisible
+            val active = if (nextVisible) {
+                LyricsParser.findActiveLyric(state.parsedLyrics, state.currentPositionMs)
+            } else {
+                null
+            }
+            state.copy(lyricsVisible = nextVisible, activeLyricText = active)
+        }
     }
 
     fun togglePlayPause() {
@@ -225,7 +264,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun seekTo(positionMs: Long) {
         exoPlayer.seekTo(positionMs)
-        _uiState.update { it.copy(currentPositionMs = positionMs) }
+        val state = _uiState.value
+        val active = if (state.lyricsVisible) {
+            LyricsParser.findActiveLyric(state.parsedLyrics, positionMs)
+        } else {
+            null
+        }
+        _uiState.update { it.copy(currentPositionMs = positionMs, activeLyricText = active) }
     }
 
     fun playNext(autoAdvance: Boolean = false) {
@@ -336,6 +381,60 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (savedPath != null) {
                 refreshLibrary()
             }
+        }
+    }
+
+    fun openLyricsEditor(item: MediaItemModel) {
+        viewModelScope.launch {
+            val existing = prefsManager.loadLyricsText(item.type.name, item.id, item.filePath)
+            _uiState.update {
+                it.copy(
+                    lyricsEditorItem = item,
+                    lyricsEditorRawText = existing
+                )
+            }
+        }
+    }
+
+    fun closeLyricsEditor() {
+        _uiState.update { it.copy(lyricsEditorItem = null, lyricsEditorRawText = "") }
+    }
+
+    fun updateLyricsEditorText(newText: String) {
+        _uiState.update { it.copy(lyricsEditorRawText = newText) }
+    }
+
+    fun importLyricsFromUri(uri: Uri) {
+        viewModelScope.launch {
+            val importedText = prefsManager.readUriText(uri)
+            if (importedText.isNotBlank()) {
+                _uiState.update { it.copy(lyricsEditorRawText = importedText) }
+            }
+        }
+    }
+
+    fun startPlaybackForSync(item: MediaItemModel) {
+        val cur = _uiState.value.currentItem
+        if (cur == null || cur.id != item.id || cur.type != item.type) {
+            val sourceList = if (item.type == MediaType.MUSIC) _uiState.value.musicList else _uiState.value.videoList
+            playMedia(item, sourceList.ifEmpty { listOf(item) }, openFullPlayer = false)
+        } else {
+            exoPlayer.seekTo(0L)
+            exoPlayer.play()
+        }
+    }
+
+    fun saveLyricsForItem(item: MediaItemModel, rawContent: String) {
+        viewModelScope.launch {
+            val saved = prefsManager.saveLyricsText(item.type.name, item.id, rawContent)
+            val updatedItem = item.copy(hasLyrics = saved || prefsManager.hasLyrics(item.type.name, item.id, item.filePath))
+            updateItemInState(updatedItem)
+
+            val cur = _uiState.value.currentItem
+            if (cur != null && cur.id == item.id && cur.type == item.type) {
+                loadLyricsForActiveItem(updatedItem)
+            }
+            closeLyricsEditor()
         }
     }
 

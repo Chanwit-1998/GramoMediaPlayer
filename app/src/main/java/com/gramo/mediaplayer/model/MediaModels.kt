@@ -14,6 +14,11 @@ enum class MainTab(val title: String) {
     VIDEO_ALBUMS("อัลบั้มวิดีโอ")
 }
 
+data class LyricLine(
+    val startTimeMs: Long,
+    val text: String
+)
+
 data class MediaItemModel(
     val id: Long,
     val contentUri: Uri,
@@ -28,7 +33,8 @@ data class MediaItemModel(
     val type: MediaType,
     val defaultArtworkUri: Uri? = null,
     val customCoverPath: String? = null,
-    val isHighlighted: Boolean = false
+    val isHighlighted: Boolean = false,
+    val hasLyrics: Boolean = false
 ) {
     val activeCoverUri: Any?
         get() = customCoverPath?.let { "file://$it" } ?: defaultArtworkUri

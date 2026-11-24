@@ -29,8 +29,7 @@ class MediaRepository(
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.SIZE,
             MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.IS_MUSIC
+            MediaStore.Audio.Media.DATA
         )
 
         val selection = "${MediaStore.Audio.Media.DURATION} > 1000"
@@ -95,7 +94,8 @@ class MediaRepository(
                             type = MediaType.MUSIC,
                             defaultArtworkUri = artUri,
                             customCoverPath = prefsManager.getCustomCoverPath("MUSIC", id),
-                            isHighlighted = prefsManager.isHighlighted("MUSIC", id)
+                            isHighlighted = prefsManager.isHighlighted("MUSIC", id),
+                            hasLyrics = prefsManager.hasLyrics("MUSIC", id, filePath)
                         )
                     )
                 }
@@ -113,7 +113,6 @@ class MediaRepository(
             MediaStore.Video.Media._ID,
             MediaStore.Video.Media.TITLE,
             MediaStore.Video.Media.ARTIST,
-            MediaStore.Video.Media.ALBUM,
             MediaStore.Video.Media.BUCKET_ID,
             MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Video.Media.DURATION,
@@ -174,9 +173,10 @@ class MediaRepository(
                             dateAddedSec = dateAdded,
                             filePath = filePath,
                             type = MediaType.VIDEO,
-                            defaultArtworkUri = contentUri, // Coil VideoDecoder extracts frame thumbnail automatically
+                            defaultArtworkUri = contentUri,
                             customCoverPath = prefsManager.getCustomCoverPath("VIDEO", id),
-                            isHighlighted = prefsManager.isHighlighted("VIDEO", id)
+                            isHighlighted = prefsManager.isHighlighted("VIDEO", id),
+                            hasLyrics = prefsManager.hasLyrics("VIDEO", id, filePath)
                         )
                     )
                 }

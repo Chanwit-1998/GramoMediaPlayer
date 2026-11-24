@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.*
@@ -36,7 +37,8 @@ fun DetailsScreen(
     onBack: () -> Unit,
     onPickCoverImage: (Uri) -> Unit,
     onRemoveCustomCover: () -> Unit,
-    onToggleHighlight: () -> Unit
+    onToggleHighlight: () -> Unit,
+    onOpenLyricsEditor: () -> Unit
 ) {
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -58,7 +60,6 @@ fun DetailsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            // Back arrow top-left (matching 685395.jpg)
             IconButton(
                 onClick = onBack,
                 modifier = Modifier.offset(x = (-12).dp)
@@ -73,7 +74,6 @@ fun DetailsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Large "รายละเอียด" heading
             Text(
                 text = "รายละเอียด",
                 fontSize = 30.sp,
@@ -83,7 +83,6 @@ fun DetailsScreen(
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            // "ปกอัลบั้ม" section label in Royal Blue
             Text(
                 text = "ปกอัลบั้ม",
                 fontSize = 15.sp,
@@ -93,7 +92,6 @@ fun DetailsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Square album cover + My Highlights / Custom Cover controls
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -151,6 +149,28 @@ fun DetailsScreen(
                             text = if (item.isHighlighted) "อยู่ในไฮไลท์แล้ว" else "เพิ่มในไฮไลท์",
                             fontSize = 13.sp,
                             color = if (item.isHighlighted) RoyalBlueAccent else DarkIconColor
+                        )
+                    }
+
+                    FilledTonalButton(
+                        onClick = onOpenLyricsEditor,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = if (item.hasLyrics) SelectedPillBg else PlaceholderGray,
+                            contentColor = if (item.hasLyrics) RoyalBlueAccent else DarkIconColor
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Subtitles,
+                            contentDescription = null,
+                            tint = if (item.hasLyrics) RoyalBlueAccent else DarkIconColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (item.hasLyrics) "แก้ไขเนื้อเพลง" else "เพิ่มเนื้อเพลง",
+                            fontSize = 13.sp
                         )
                     }
 

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gramo.mediaplayer.ui.components.LyricsEditorDialog
 import com.gramo.mediaplayer.ui.screens.DetailsScreen
 import com.gramo.mediaplayer.ui.screens.FullPlayerScreen
 import com.gramo.mediaplayer.ui.screens.MainLibraryScreen
@@ -121,7 +122,6 @@ fun GramoAppRoot(viewModel: PlayerViewModel = viewModel()) {
         return
     }
 
-    // Handle Android Back button cleanly across Details -> Full Player -> Opened Album -> Home
     BackHandler(enabled = uiState.detailsItem != null || uiState.isFullPlayerOpen || uiState.openedAlbum != null) {
         when {
             uiState.detailsItem != null -> viewModel.closeDetails()
@@ -136,15 +136,12 @@ fun GramoAppRoot(viewModel: PlayerViewModel = viewModel()) {
             onSelectTab = viewModel::selectTab,
             onToggleSearch = viewModel::toggleSearch,
             onSearchQueryChange = viewModel::updateSearchQuery,
-            onToggleHighlightsFilter = viewModel::toggleHighlightsFilter,
             onSetHighlightsFilter = viewModel::setHighlightsFilter,
             onRefresh = viewModel::refreshLibrary,
             onPlayMedia = { item, list -> viewModel.playMedia(item, list, openFullPlayer = true) },
             onTogglePlayPause = viewModel::togglePlayPause,
             onOpenFullPlayer = { viewModel.setFullPlayerOpen(true) },
             onOpenDetails = viewModel::openDetails,
-            onToggleHighlight = viewModel::toggleHighlight,
-            onSetCustomCoverForItem = viewModel::setCustomCoverForItem,
             onOpenAlbum = viewModel::openAlbum,
             onCloseAlbum = viewModel::closeAlbum,
             onSetCustomCoverForAlbum = viewModel::setCustomCoverForAlbum
@@ -163,6 +160,9 @@ fun GramoAppRoot(viewModel: PlayerViewModel = viewModel()) {
                 shuffleEnabled = uiState.shuffleEnabled,
                 playbackSpeed = uiState.playbackSpeed,
                 sleepTimerRemainingSec = uiState.sleepTimerRemainingSec,
+                lyricsVisible = uiState.lyricsVisible,
+                activeLyricText = uiState.activeLyricText,
+                hasLyrics = currentItem.hasLyrics || uiState.parsedLyrics.isNotEmpty(),
                 onCollapse = { viewModel.setFullPlayerOpen(false) },
                 onTogglePlayPause = viewModel::togglePlayPause,
                 onSeekTo = viewModel::seekTo,
@@ -171,6 +171,7 @@ fun GramoAppRoot(viewModel: PlayerViewModel = viewModel()) {
                 onCycleRepeat = viewModel::cycleRepeatMode,
                 onToggleShuffle = viewModel::toggleShuffle,
                 onToggleHighlight = { viewModel.toggleHighlight(currentItem) },
+                onToggleLyricsVisibility = viewModel::toggleLyricsVisibility,
                 onOpenDetails = { viewModel.openDetails(currentItem) },
                 onSelectSpeed = viewModel::setPlaybackSpeed,
                 onSelectSleepTimer = viewModel::setSleepTimerMinutes,
@@ -187,7 +188,24 @@ fun GramoAppRoot(viewModel: PlayerViewModel = viewModel()) {
                 onBack = viewModel::closeDetails,
                 onPickCoverImage = { uri -> viewModel.setCustomCoverForItem(detailsItem, uri) },
                 onRemoveCustomCover = { viewModel.removeCustomCoverForItem(detailsItem) },
-                onToggleHighlight = { viewModel.toggleHighlight(detailsItem) }
+                onToggleHighlight = { viewModel.toggleHighlight(detailsItem) },
+                onOpenLyricsEditor = { viewModel.openLyricsEditor(detailsItem) }
+            )
+        }
+
+        val editorItem = uiState.lyricsEditorItem
+        if (editorItem != null) {
+            LyricsEditorDialog(
+                item = editorItem,
+                rawText = uiState.lyricsEditorRawText,
+                isPlaying = uiState.isPlaying,
+                currentPositionMs = uiState.currentPositionMs,
+                onTextChange = viewModel::updateLyricsEditorText,
+                onImportFileUri = viewModel::importLyricsFromUri,
+                onStartPlaybackForSync = { viewModel.startPlaybackForSync(editorItem) },
+                onTogglePlayPause = viewModel::togglePlayPause,
+                onSave = { content -> viewModel.saveLyricsForItem(editorItem, content) },
+                onDismiss = viewModel::closeLyricsEditor
             )
         }
     }
